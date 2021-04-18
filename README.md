@@ -17,4 +17,8 @@ We have provided the modified files in the folder **NS3_Simulator**
 ## Plotting data
 Data collected (After the simulation) for the plotting is present in the python-scripts/analysis.csv. A python script with name plotAnalysis.py (present in the same folder only) can be used to get the plots.   
 
+## Complexity Analysis Script
+A python script for complexity analysis (file - bresenham.py) is present in the python-scripts folder.
 
+## fybrrLink-VizTool
+The Modified Bresenham's Routing Algorithm Visualization Tool is hosted at - https://fybrrlink-viztool.herokuapp.com. The code can be found at - https://github.com/RotonEvan/fybrrLink-VizTool
