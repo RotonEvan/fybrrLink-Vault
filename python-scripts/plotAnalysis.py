@@ -306,5 +306,5 @@ if __name__ == "__main__":
 	printAvgLatency(data)
 	printAvgPLR2(data)
 	printAvgPLR(data)
-	# plotAvgCD(data)
-	# plotPies(324, 280, 304, 145)
+	plotAvgCD(data)
+	plotPies(324, 280, 304, 145)
