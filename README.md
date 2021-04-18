@@ -12,7 +12,9 @@ We have provided the modified files in the folder **NS3_Simulator**
   5. Run the QoS aware routing simulation with the following command
   ```console
   foo@bar:~$ sudo ./waf --run qos-aware-routing
-  foo
   ```
+  
+## Plotting data
+Data collected (After the simulation) for the plotting is present in the python-scripts/analysis.csv. A python script with name plotAnalysis.py (present in the same folder only) can be used to get the plots.   
 
 
