@@ -902,6 +902,9 @@ namespace ns3 {
         // std::cout<<Nodes.at(count)<<std::endl;
         uint32_t u = this->minDistance(dist, visited, Nodes);
         visited[u] = true;
+        if (u == destination_access_id){
+          break;
+        }
         for (int i = 0; i < 6; i++){
           int edge_index = AdjList.at(u).at(i);
           int v_id = AdjList.at(u).at(i+6);
@@ -1022,6 +1025,9 @@ namespace ns3 {
         // std::cout<<Nodes.at(count)<<std::endl;
         uint32_t u = this->minDistance(dist, visited, Nodes);
         visited[u] = true;
+        if (u == destination_access_id){
+          break;
+        }
         for (int i = 0; i < 6; i++){
           int edge_index = this->adjList.at(u).at(i);
           int v_id = this->adjList.at(u).at(i+6);
