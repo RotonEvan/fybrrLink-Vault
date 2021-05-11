@@ -38,8 +38,8 @@ namespace ns3 {
     this->num_planes = num_planes;
     this->num_satellites_per_plane = num_satellites_per_plane;
     this->m_altitude = altitude;
-    this->K1 = 0.55;
-    this->K2 = 0.30;
+    this->K1 = 0.35;
+    this->K2 = 0.50;
     this->K3 = 0.15;
 
     uint32_t total_num_satellites = num_planes*num_satellites_per_plane;
@@ -49,6 +49,8 @@ namespace ns3 {
       this->adjList.push_back(v1);
       std::vector <int> v2(2, -1);
       this->xyPosition.push_back(v2);
+      std::vector <int> v3(8, -1);
+      this->SDRAadjList.push_back(v3);
     }
     for (uint32_t i = 0; i < 2*num_satellites_per_plane;i++){
       std::vector <int> v3(2*num_planes, -1);
@@ -642,6 +644,11 @@ namespace ns3 {
           this->adjList.at(node1_id).at(type) = edge_index;
           this->adjList.at(node1_id).at(type+6) = node2_id;
 
+          if (type != 5){
+            this->SDRAadjList.at(node1_id).at(type) = edge_index;
+            this->SDRAadjList.at(node1_id).at(type+4) = node2_id;
+          }
+
           if (type%2 == 0){
             type = type + 1;
           }
@@ -651,11 +658,17 @@ namespace ns3 {
           this->adjList.at(node2_id).at(type) = edge_index;
           this->adjList.at(node2_id).at(type+6) = node1_id;
 
+          if (type < 4){
+            this->SDRAadjList.at(node2_id).at(type) = edge_index;
+            this->SDRAadjList.at(node2_id).at(type+4) = node1_id;
+          }
+
         }
         else{
           edge_index = this->adjList.at(node1_id).at(type);
           this->edges.at(edge_index).at(5) = cost;
-        }    
+        }
+          
   }
 
 
@@ -840,6 +853,72 @@ namespace ns3 {
       subAdjList.at(access_idx).at(link[3]) = -1;
       if (i != diagonal_steps)
         access_idx = subAdjList.at(access_idx).at(link[4]+6);
+    }
+
+    // for (std::size_t i = 0; i < subAdjList.size(); ++i) {
+    //   for (uint32_t j = 0; j < 12; j++)
+    //     std::cout<<subAdjList.at(i).at(j)<<" ";
+    //   std::cout<<std::endl;
+    // }
+    return subAdjList;
+  }
+
+  std::vector<std::vector<int>> LeoSatelliteConfig::getSDRASubGraph(int x1, int y1, int x2, int y2){
+
+    std::vector<std::vector<int>> subAdjList = this->SDRAadjList;
+
+    uint32_t link[5] = {4, 2, 1, 2, 3 };
+    uint32_t vertical_steps, horizontal_steps;
+
+    if (x1 > x2){
+      std::swap(x1, x2);
+      std::swap(y1, y2);
+    }
+    horizontal_steps = abs(x2 - x1)/2;
+    y2 += horizontal_steps;
+    vertical_steps  = abs(y1 - y2)/2;
+    std::cout<<">> Diagonal Steps : "<<horizontal_steps<<", Vertical Steps : "<<vertical_steps<<std::endl;
+    
+	  if (y1 >= y2){
+      link[2] = 0;
+    }
+
+    uint32_t i;
+    uint32_t access_idx = this->xyToaccessID.at(x1).at(y1);
+
+    for (i = 0; i < vertical_steps+1; i++){
+      // std::cout<<"Hello Node ["<< this->xyPosition.at(access_idx).at(0)<<"]["<<this->xyPosition.at(access_idx).at(1)<<"] are : "<<std::endl;
+      subAdjList.at(access_idx).at(link[1]) = -1;
+      if (i != vertical_steps)
+        access_idx = subAdjList.at(access_idx).at(link[2]+4);
+    }
+
+
+    for (i = 0; i < horizontal_steps+1; i++){
+      // std::cout<<"Hello Node ["<< this->xyPosition.at(access_idx).at(0)<<"]["<<this->xyPosition.at(access_idx).at(1)<<"] are : "<<std::endl;
+
+      subAdjList.at(access_idx).at(link[2]) = -1;
+      if (i != horizontal_steps)
+        access_idx = subAdjList.at(access_idx).at(link[4]+4);
+    }
+
+    link[2] = 1 - link[2];
+    link[4] = 2;
+    link[1]++;
+
+    for (i = 0; i < vertical_steps+1; i++){
+            // std::cout<<"Hello Node ["<< this->xyPosition.at(access_idx).at(0)<<"]["<<this->xyPosition.at(access_idx).at(1)<<"] are : "<<std::endl;
+
+      subAdjList.at(access_idx).at(link[1]) = -1;
+      if (i != vertical_steps)
+        access_idx = subAdjList.at(access_idx).at(link[2]+4);
+    }
+    for (i = 0; i < horizontal_steps+1; i++){
+            // std::cout<<"Hello Node ["<< this->xyPosition.at(access_idx).at(0)<<"]["<<this->xyPosition.at(access_idx).at(1)<<"] are : "<<std::endl;
+
+      subAdjList.at(access_idx).at(link[2]) = -1;
+      if (i != horizontal_steps)
+        access_idx = subAdjList.at(access_idx).at(link[4]+4);
     }
 
     // for (std::size_t i = 0; i < subAdjList.size(); ++i) {
@@ -1073,96 +1152,56 @@ namespace ns3 {
     avg = avg/n;
     return avg;
   }
-  std::vector<std::vector<int>> LeoSatelliteConfig::getSDRASubGraph(int x1, int y1, int x2, int y2){
 
-    std::vector<std::vector<int>> subAdjList = this->adjList;
-
-    uint32_t link[5] = {4, 2, 1, 2, 3 };
-    uint32_t vertical_steps, diagonal_steps;
-
-    if (x1 > x2){
-      std::swap(x1, x2);
-      std::swap(y1, y2);
+  double LeoSatelliteConfig::getSDRAAvgCongestionDegree(){
+    int V = this->num_satellites_per_plane*this->num_planes;
+    double avg = 0;
+    for (int i = 0; i < V; i++){
+      // std::cout<<"Node "<<i+1<<" : ";
+      for (int j = 0;j < 4; j++){
+        avg += this->edges.at(this->SDRAadjList.at(i).at(j)).at(3);
+        // std::cout<<this->SDRAadjList.at(i).at(j)<<" : ";
+      }
+      // std::cout<<std::endl;
     }
-    diagonal_steps = abs(x2 - x1)/2;
-    vertical_steps = abs(y1 - y2);
-    // std::cout<<">> Diagonal Steps : "<<diagonal_steps<<", Vertical Steps : "<<vertical_steps<<std::endl;
-    
-	  if (y1 >= y2){
-      link[4] = 3;
-      link[3] = 4;
-      link[2] = 0;
-    }
-
-    uint32_t i;
-    uint32_t access_idx = this->xyToaccessID.at(x1).at(y1);
-
-    for (i = 0; i < vertical_steps+1; i++){
-      std::cout<<"Hello Node ["<< this->xyPosition.at(access_idx).at(0)<<"]["<<this->xyPosition.at(access_idx).at(1)<<"] are : "<<std::endl;
-      subAdjList.at(access_idx).at(link[0]) = -1;
-      subAdjList.at(access_idx).at(link[1]) = -1;
-      if (i != vertical_steps)
-        access_idx = subAdjList.at(access_idx).at(link[2]+6);
-    }
-
-
-    for (i = 0; i < diagonal_steps+1; i++){
-            std::cout<<"Hello Node ["<< this->xyPosition.at(access_idx).at(0)<<"]["<<this->xyPosition.at(access_idx).at(1)<<"] are : "<<std::endl;
-
-      subAdjList.at(access_idx).at(link[2]) = -1;
-      subAdjList.at(access_idx).at(link[3]) = -1;
-      if (i != diagonal_steps)
-        access_idx = subAdjList.at(access_idx).at(link[4]+6);
-    }
-
-    link[2] = 1 - link[2];
-    if (y1 >= y2){
-      link[4] = 2;
-      link[3] = 5;
-    }
-    else{
-      link[4] = 2;
-      link[3] = 3;
-    }
-    link[0]++;
-    link[1]++;
-
-    for (i = 0; i < vertical_steps+1; i++){   
-         std::cout<<"Hello Node ["<< this->xyPosition.at(access_idx).at(0)<<"]["<<this->xyPosition.at(access_idx).at(1)<<"] are : "<<std::endl;
-
-      subAdjList.at(access_idx).at(link[0]) = -1;
-      subAdjList.at(access_idx).at(link[1]) = -1;
-      if (i != vertical_steps)
-        access_idx = subAdjList.at(access_idx).at(link[2]+6);
-    }
-    for (i = 0; i < diagonal_steps+1; i++){
-            std::cout<<"Hello Node ["<< this->xyPosition.at(access_idx).at(0)<<"]["<<this->xyPosition.at(access_idx).at(1)<<"] are : "<<std::endl;
-
-      subAdjList.at(access_idx).at(link[2]) = -1;
-      subAdjList.at(access_idx).at(link[3]) = -1;
-      if (i != diagonal_steps)
-        access_idx = subAdjList.at(access_idx).at(link[4]+6);
-    }
-    return subAdjList;
+    avg = avg/(V*4);
+    return avg;
   }
 
-  void LeoSatelliteConfig::SDRA_DFS(int s, int d, std::vector<std::vector<int>> AdjList) {
+  double LeoSatelliteConfig::getSDRAPathParameters(std::vector<uint32_t> path){
+    int n = (int)path.size();
+    uint32_t index = 0;
+    double latency = 0;
+
+    for (int i = 0; i < n-1; i++){
+      for (int j = 0;j < 4; j++){
+        if ((uint32_t)this->SDRAadjList.at(path.at(i)).at(j+4) == path.at(i+1)){
+          index = this->SDRAadjList.at(path.at(i)).at(j);
+          latency += this->edges.at(index).at(1);
+
+          if (this->edges.at(index).at(3) > 0.99){
+            latency += 0.2;
+          }
+          break;
+        }
+      }
+    }
+    return latency;
+  }
+
+  std::vector<uint32_t> LeoSatelliteConfig::SDRA_DFS(int s, int d, std::vector<std::vector<int>> AdjList) {
     int V = this->num_planes*this->num_satellites_per_plane;
     bool* visited = new bool[V];
   
     // Create an array to store paths
-    int* path = new int[V];
+    uint32_t* path = new uint32_t[V];
     int path_index = 0;
   
     for (int i = 0; i < V; i++)
         visited[i] = false;
 
     // std::vector<uint32_t> Nodes;
-    // bool visited[V];
-    // for (int i = 0; i < V; i++)
-    //   visited[i] = false;
-    
-
+   
     // std::stack<int> stack_arr;
     // stack_arr.push(s);
     // uint32_t access_idx;
@@ -1174,45 +1213,80 @@ namespace ns3 {
     //       Nodes.push_back(access_idx);
     //       visited[access_idx] = true;
     //     }
-    //     for (uint32_t i = 0;i < 6;i++){
-    //       if (AdjList.at(access_idx).at(i) != -1 && !visited[AdjList.at(access_idx).at(i+6)]){
-    //           stack_arr.push(AdjList.at(access_idx).at(i+6));
-    //           std::cout<<"Node "<< access_idx<<"] is at ("<<this->xyPosition.at(access_idx).at(0)<< "," << this->xyPosition.at(access_idx).at(1) << ") and "<<"Node "<< AdjList.at(access_idx).at(i+6)<<"] is at ("<<this->xyPosition.at(AdjList.at(access_idx).at(i+6)).at(0)<< "," << this->xyPosition.at(AdjList.at(access_idx).at(i+6)).at(1) << ")"<<std::endl;
+    //     for (uint32_t i = 0;i < 4;i++){
+    //       if (AdjList.at(access_idx).at(i) != -1 && !visited[AdjList.at(access_idx).at(i+4)]){
+    //           stack_arr.push(AdjList.at(access_idx).at(i+4));
+    //           std::cout<<"Node "<< access_idx<<"] is at ("<<this->xyPosition.at(access_idx).at(0)<< "," << this->xyPosition.at(access_idx).at(1) << ") and "<<"Node "<< AdjList.at(access_idx).at(i+4)<<"] is at ("<<this->xyPosition.at(AdjList.at(access_idx).at(i+4)).at(0)<< "," << this->xyPosition.at(AdjList.at(access_idx).at(i+4)).at(1) << ")"<<std::endl;
     //       }
     //     }
     // }
-    this->getSDRAPath(s, d, visited, path, path_index, AdjList);
+    std::vector<uint32_t> final_path;
+    double final_path_weight = 100;
+    this->getSDRAPath(s, d, visited, path, path_index, AdjList, final_path_weight, final_path);
 
-    for (int i = 0; i < V; i++)
-        std::cout<<path[i]<<std::endl;
+    return final_path;
+    // int n = (int)final_path.size();
+    // for(int i = 0;i < n;i++){
+    //   std::cout<<final_path.at(i)<<" : ";
+    // }
+    // std::cout<<std::endl;
   }
     
-  void LeoSatelliteConfig::getSDRAPath(int u, int d, bool visited[], int path[], int path_index, std::vector<std::vector<int>> adjList) {
+  void LeoSatelliteConfig::getSDRAPath(int u, int d, bool visited[], uint32_t path[], int path_index, std::vector<std::vector<int>> adjList, double &final_path_weight, std::vector<uint32_t>& final_path) {
       // Mark the current node and store it in path[]
+      // std::cout<<u<<std::endl;
+
       visited[u] = true;
       path[path_index] = u;
       path_index++;
 
       if (u == d) {
-          for (int i = 0; i < path_index; i++)
-              std::cout << path[i] << " ";
-          std::cout << std::endl;
+        std::vector<uint32_t> path_vector;
+        double weight;
+        // std::cout<<"Here is one more path : ";
+        for (int i = 0; i < path_index; i++){
+          path_vector.push_back(path[i]);
+          // std::cout<<path[i]<<" : ";
+        }
+        // std::cout<<std::endl;
+        weight = this->getSDRAPathParameters(path_vector);
+        // std::cout<<weight<<" : "<<final_path_weight<<std::endl;
+        if (weight < final_path_weight){
+          final_path_weight = weight;
+          final_path = path_vector;
+        }
       }
-      else
-      {
-          for (int index = 0; index < 6;index++){
-            // std::cout<<adjList.at(u).at(index)<<std::endl
-            if (adjList.at(u).at(index) != -1 && !visited[adjList.at(u).at(index+6)])
-              this->getSDRAPath(index, d, visited, path, path_index, adjList);
+      else {
+          for (int index = 0; index < 4;index++){
+            // std::cout<<adjList.at(u).at(index+4)<<std::endl;
+            if (adjList.at(u).at(index) != -1 && !visited[adjList.at(u).at(index+4)]){
+              this->getSDRAPath(adjList.at(u).at(index+4), d, visited, path, path_index, adjList, final_path_weight, final_path);
+            }
+            
           }
-          // for (i = adj[u].begin(); i != adj[u].end(); ++i)
-          //     if (!visited[*i])
-          //         getSDRAPath(*i, d, visited, path, path_index, adjList);
       }
     
       // Remove current vertex from path[] and mark it as unvisited
       path_index--;
       visited[u] = false;
+  }
+
+  std::vector<std::vector<double>> LeoSatelliteConfig::getEdgeSetForKShortest(){
+    std::vector<std::vector<double>> edge_data;
+
+     for (std::size_t i = 0; i < this->adjList.size(); ++i) {
+      // uint32_t plane_no = i/this->num_satellites_per_plane;
+      // uint32_t satellit_no = i%this->num_satellites_per_plane;
+      // std::cout<<"Node ["<< plane_no<<"]["<<satellit_no<<"] : ";
+      for (uint32_t j = 0; j < 6; j++){
+        std::vector<double> edge = {(double)i, (double)this->adjList.at(i).at(j+6), this->edges.at(this->adjList.at(i).at(j)).at(1) };
+        edge_data.push_back(edge);
+        // std::cout<<this->adjList.at(i).at(j)<<" ";
+      }
+      // std::cout<<std::endl;
+    }
+
+    return edge_data;
   }
 
 }

@@ -14,8 +14,22 @@
 #include "ns3/flow-monitor-helper.h"
 #include <string>
 #include <sstream>
+#include <limits>
+#include <set>
+#include <map>
+#include <queue>
+#include <string>
+#include <vector>
+#include <fstream>
+#include <iostream>
+#include <algorithm>
+#include "GraphElements.h"
+#include "Graph.cc"
+#include "DijkstraShortestPathAlg.cc"
+#include "YenTopKShortestPathsAlg.cc"
 
 using namespace ns3;
+
 std::tuple<std::vector<std::vector<uint32_t>>, std::vector<bool>, std::vector<std::vector<double>>> readCSV(std::string filename);
 
 
@@ -48,6 +62,7 @@ int main (int argc, char *argv[]) {
     std::vector<uint32_t> path;
     std::vector<std::vector<int>> adjList;
     std::vector<uint32_t> edge_index;
+    std::vector<uint32_t> edge_index1;
     int path_BW;
     double path_latency, path_PLR;
     int count = 0;
@@ -55,12 +70,15 @@ int main (int argc, char *argv[]) {
     std::ofstream myFile1("analysis.csv");
 
     std::tie(XYCoordinates, qosEnabled, flowParams) = readCSV("TestCases.csv");
-    
+    // double edges[n_planes*n_sats_per_plane][3];
+
+    Graph my_graph(n_planes*n_sats_per_plane, sat_network.getEdgeSetForKShortest() );
+
     N = (int)qosEnabled.size();
     std::cout<<">> Running test cases"<<std::endl;
     for(int flow_index = 0; flow_index < N;flow_index++){
-        myFile1 << sat_network.getAvgCongestionDegree();
-        myFile1 << "\n";
+        // myFile1 << sat_network.getSDRAAvgCongestionDegree()<<"\n";;
+        // myFile1 << "\n";
 
         std::cout<<"["<<flow_index+1<<"/"<<N<<"] : Initialising routing..."<<std::endl; 
 
@@ -75,32 +93,51 @@ int main (int argc, char *argv[]) {
         destination_access_id = sat_network.xyToaccessID.at(x2).at(y2);
 
         std::cout<<"["<<flow_index+1<<"/"<<N<<"] : Source Access ID is "<<source_access_id<<" and Destination Access Id is "<< destination_access_id<<std::endl;
-        
+
         auto start = high_resolution_clock::now();
 
-        std::cout<<"["<<flow_index+1<<"/"<<N<<"] : Running Dijkstra ... "<<std::endl;
-        path = sat_network.planeDijkstraAlgorithm(source_access_id, destination_access_id);
-        std::tie(edge_index, path_BW, path_latency, path_PLR) = sat_network.getPathParameters(path);
+        std::cout<<"["<<flow_index+1<<"/"<<N<<"] : Running Yen's K shortest path algorithm to find best K paths ... "<<std::endl;
 
-        std::cout<<"["<<flow_index+1<<"/"<<N<<"] : Printing Dijkstra Path Coordinates";
+        YenTopKShortestPathsAlg yenAlg(my_graph, my_graph.get_vertex(source_access_id), my_graph.get_vertex(destination_access_id));
+
+        int i=0;
+        bool path_found = false;
+        while(yenAlg.has_next() && i < 15) {
+            ++i;
+            path = yenAlg.next()->PrintOut(cout);
+
+            std::cout<<"["<<flow_index+1<<"/"<<N<<"] : Printing Path no. "<<i;
             for (std::size_t i = 0; i < path.size(); ++i){
                 std::vector<int> coord = sat_network.xyPosition[path[i]];
                 std::cout<<" - > ("<<coord.at(0)<<" , "<<coord.at(1)<<") ";
             }
-        std::cout<<std::endl;
+            std::cout<<std::endl;
 
-        if(sat_network.isSatisfying(path_BW, path_latency, path_PLR, flowParams.at(flow_index).at(0), flowParams.at(flow_index).at(1), flowParams.at(flow_index).at(2))){ 
-            std::cout<<"["<<flow_index+1<<"/"<<N<<"] : Flow successfully routed"<<std::endl;
-            count++;
+            std::tie(edge_index, path_BW, path_latency, path_PLR) = sat_network.getPathParameters(path);
+            if(sat_network.isSatisfying(path_BW, path_latency, path_PLR, flowParams.at(flow_index).at(0), flowParams.at(flow_index).at(1), flowParams.at(flow_index).at(2))){ 
+                std::cout<<"["<<flow_index+1<<"/"<<N<<"] : Flow successfully routed"<<std::endl;
+                path_found = true;
+                count++;
+                break;
+            }
+            else{
+                edge_index1 = edge_index;
+            }
+        }
+
+        if (!path_found){
+            std::cout<<"["<<flow_index+1<<"/"<<N<<"] : Given Flow cannot be satisfied. Please relax some contraints. "<<std::endl;
+            sat_network.updateGraph(edge_index1, flowParams.at(flow_index).at(0));
+
         }
         else{
-            std::cout<<"["<<flow_index+1<<"/"<<N<<"] : Given Flow cannot be satisfied. Please relax some contraints. "<<std::endl;
+            sat_network.updateGraph(edge_index, flowParams.at(flow_index).at(0));
         }
-        sat_network.updateGraph(edge_index, flowParams.at(flow_index).at(0));
+
         auto stop = high_resolution_clock::now();
         auto duration = duration_cast<microseconds>(stop - start);
 
-        // myFile1 << path_BW<<","<<path_latency<<","<<path_PLR<<","<<(int)path.size()-1<<","<<duration.count()<<"\n";
+        myFile1 << sat_network.getSDRAAvgCongestionDegree()<<","<< path_BW<<","<<path_latency<<","<<path_PLR<<","<<(int)path.size()-1<<","<<duration.count()<<"\n";
 
     }
     myFile1.close();

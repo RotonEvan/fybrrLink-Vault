@@ -57,6 +57,7 @@ public:
   std::vector<uint32_t> bresenhemAlgo(int x1, int y1, int x2, int y2);
   std::tuple<std::vector<int>, std::vector<int>> bresenhemAlgoUtil(int x1, int y1, int x2, int y2);
   std::vector<std::vector<int>> getSubGraph(int x1, int y1, int x2, int y2);
+  std::vector<std::vector<int>> getSDRASubGraph(int x1, int y1, int x2, int y2);
   std::vector<uint32_t> DijkstraAlgorithm(uint32_t source_access_id, uint32_t destination_access_id, std::vector<std::vector<int>> AdjList, bool recomputeCost, double maxCD);
   uint32_t minDistance(double dist[], bool visited[], std::vector<uint32_t> Nodes);
   std::tuple<std::vector<uint32_t>, int, double, double> getPathParameters(std::vector<uint32_t> path);
@@ -65,11 +66,14 @@ public:
 
   std::vector<uint32_t> planeDijkstraAlgorithm(uint32_t source_access_id, uint32_t destination_access_id);
   double getAvgCongestionDegree();
+  double getSDRAAvgCongestionDegree();
 
-  void SDRA_DFS(int s, int d, std::vector<std::vector<int>> adjList);
-  void getSDRAPath(int u, int d, bool visited[], int path[], int path_index, std::vector<std::vector<int>> adjList);
-  std::vector<std::vector<int>> getSDRASubGraph(int x1, int y1, int x2, int y2);
 
+  std::vector<uint32_t> SDRA_DFS(int s, int d, std::vector<std::vector<int>> adjList);
+  void getSDRAPath(int u, int d, bool visited[], uint32_t path[], int path_index, std::vector<std::vector<int>> adjList, double &final_path_weight, std::vector<uint32_t>& final_path);
+  double getSDRAPathParameters(std::vector<uint32_t> path);
+
+  std::vector<std::vector<double>> getEdgeSetForKShortest();
 
   NodeContainer ground_stations; //node container to hold ground stations
   std::vector<Ipv4InterfaceContainer> ground_station_interfaces;
@@ -82,6 +86,11 @@ public:
   std::vector <std::vector<int>> adjList;
 
   std::vector <std::vector<int>> SDRAadjList;
+  /*
+    0 : 1 :: Lower : Upper
+    2 : 3 :: Left : Right..... RightDown is Right
+  */
+
   std::vector <std::vector<double>> edges;
   /*
     edges[i] = {Available_Bandwidth, delay, double PLR, CD, Bandwidth};

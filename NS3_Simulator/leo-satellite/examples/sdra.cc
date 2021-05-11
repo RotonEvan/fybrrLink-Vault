@@ -56,12 +56,20 @@ int main (int argc, char *argv[]) {
 
     std::tie(XYCoordinates, qosEnabled, flowParams) = readCSV("TestCases.csv");
     
+    int skipArrInd = 0;
+    
+    int skipArr[] = {4, 15, 24, 35, 50, 58, 65, 68, 81, 91,95, 106, 114, 125, 140, 142, 148, 155, 158, 171, 181, 185, 196, 208, 223, 237, 254, 265, 274, 284, 298, 306, 313, 316, 323};
     N = (int)qosEnabled.size();
     std::cout<<">> Running test cases"<<std::endl;
-    for(int flow_index = 0; flow_index < 1;flow_index++){
-        // myFile1 << sat_network.getAvgCongestionDegree();
-        // myFile1 << "\n";
+    for(int flow_index = 4; flow_index < 5;flow_index++){
+        myFile1 << sat_network.getSDRAAvgCongestionDegree();
+        myFile1 << "\n";
 
+        if (flow_index == skipArr[skipArrInd]){
+            skipArrInd++;
+            // myFile1 << 0<<","<<0<<","<<0<<","<<0<<","<<0<<"\n";
+            // continue;
+        }
         std::cout<<"["<<flow_index+1<<"/"<<N<<"] : Initialising routing..."<<std::endl; 
 
         x1 = XYCoordinates.at(flow_index).at(0);
@@ -77,14 +85,14 @@ int main (int argc, char *argv[]) {
         std::cout<<"["<<flow_index+1<<"/"<<N<<"] : Source Access ID is "<<source_access_id<<" and Destination Access Id is "<< destination_access_id<<std::endl;
         
         auto start = high_resolution_clock::now();
-        adjList = sat_network.getSubGraph(x1, y1, x2, y2);
-        sat_network.SDRA_DFS(source_access_id, destination_access_id, adjList);
+        adjList = sat_network.getSDRASubGraph(x1, y1, x2, y2);
 
-        std::cout<<"["<<flow_index+1<<"/"<<N<<"] : Running Dijkstra ... "<<std::endl;
-        path = sat_network.planeDijkstraAlgorithm(source_access_id, destination_access_id);
+        std::cout<<"["<<flow_index+1<<"/"<<N<<"] : Running DFS to find the optimal path ... "<<std::endl;
+        path = sat_network.SDRA_DFS(source_access_id, destination_access_id, adjList);
+
         std::tie(edge_index, path_BW, path_latency, path_PLR) = sat_network.getPathParameters(path);
 
-        std::cout<<"["<<flow_index+1<<"/"<<N<<"] : Printing Dijkstra Path Coordinates";
+        std::cout<<"["<<flow_index+1<<"/"<<N<<"] : Printing DFS Generarted Path Coordinates";
             for (std::size_t i = 0; i < path.size(); ++i){
                 std::vector<int> coord = sat_network.xyPosition[path[i]];
                 std::cout<<" - > ("<<coord.at(0)<<" , "<<coord.at(1)<<") ";
@@ -102,7 +110,7 @@ int main (int argc, char *argv[]) {
         auto stop = high_resolution_clock::now();
         auto duration = duration_cast<microseconds>(stop - start);
 
-        myFile1 << path_BW<<","<<path_latency<<","<<path_PLR<<","<<(int)path.size()-1<<","<<duration.count()<<"\n";
+        // myFile1 << path_BW<<","<<path_latency<<","<<path_PLR<<","<<(int)path.size()-1<<","<<duration.count()<<"\n";
 
     }
     myFile1.close();
